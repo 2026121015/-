@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0e1020">
+<title>마피아 게임</title>
+<style>
+  :root{
+    --bg:#f5f2ea; --fg:#1d1d22; --card:#ffffff; --muted:#6c6a72; --line:#e2ddd1;
+    --primary:#2f5bd3; --primary-fg:#fff; --danger:#c93a3a; --good:#2e9b62;
+    --sel:rgba(47,91,211,.12); --shadow:0 2px 10px rgba(0,0,0,.06);
+  }
+  body.night{
+    --bg:#0d0f1e; --fg:#e8e8f2; --card:#191c33; --muted:#9799b3; --line:#2b2f4d;
+    --primary:#6d7cff; --primary-fg:#fff; --danger:#ff6b6b; --good:#4fd18b;
+    --sel:rgba(109,124,255,.18); --shadow:0 2px 12px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR","Malgun Gothic",sans-serif;
+    min-height:100dvh;transition:background .4s,color .4s;
+    -webkit-user-select:none;user-select:none;overscroll-behavior:none;
+  }
+  input{-webkit-user-select:text;user-select:text}
+  .wrap{max-width:480px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+
+  header{
+    position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;
+    padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+    background:var(--bg);border-bottom:1px solid var(--line);
+  }
+  header .phase{font-weight:800;font-size:1.05rem}
+  header .alive{font-size:.85rem;color:var(--muted);margin-top:2px}
+  header .grow{flex:1}
+  .hbtn{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:10px;
+    padding:9px 12px;font-size:.9rem;font-weight:700}
+  .hbtn.stop{color:var(--danger)}
+
+  #app{flex:1;display:flex;flex-direction:column}
+  .screen{flex:1;display:flex;flex-direction:column;gap:14px;
+    padding:20px 16px calc(20px + env(safe-area-inset-bottom))}
+  .center{justify-content:center;align-items:stretch;text-align:center}
+  .bottom{margin-top:auto}
+  h1,h2,h3,p{margin:0}
+  h2{font-size:1.35rem;line-height:1.35}
+  .muted{color:var(--muted)}
+  .small{font-size:.85rem}
+
+  .btn{display:block;width:100%;min-height:58px;border:0;border-radius:14px;
+    font-size:1.15rem;font-weight:800;background:var(--card);color:var(--fg);
+    border:1px solid var(--line);font-family:inherit;cursor:pointer}
+  .btn.primary{background:var(--primary);color:var(--primary-fg);border-color:transparent}
+  .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
+  .btn.xl{min-height:66px;font-size:1.25rem}
+  .btn:disabled{opacity:.4}
+  .btn:active:not(:disabled){transform:scale(.98)}
+  /* 컴퓨터(마우스 환경)에서만 Enter 안내 표시 */
+  @media (hover:hover) and (pointer:fine){
+    .btn.primary.bottom:not(:disabled)::after,
+    .btns .btn.primary:not(:disabled)::after{
+      content:"Enter ↵";margin-left:10px;font-size:.75rem;font-weight:700;opacity:.75;
+      padding:3px 7px;border-radius:6px;border:1px solid rgba(255,255,255,.5);vertical-align:middle}
+    .center .btn.primary:not(:disabled)::after{
+      content:"Enter ↵";margin-left:10px;font-size:.75rem;font-weight:700;opacity:.75;
+      padding:3px 7px;border-radius:6px;border:1px solid rgba(255,255,255,.5);vertical-align:middle}
+  }
+  .btns{display:flex;flex-direction:column;gap:10px}
+  .btn-row{display:flex;gap:10px}
+  .btn-row .btn{flex:1}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+
+  /* setup */
+  .hero{text-align:center;padding:10px 0 4px}
+  .hero .logo{font-size:3rem}
+  .hero h1{font-size:2rem;margin:4px 0}
+  .lbl{font-weight:800;display:block;margin-bottom:10px}
+  .row{display:flex;gap:8px}
+  .row input{flex:1;min-width:0;height:54px;border-radius:12px;border:1px solid var(--line);
+    background:var(--bg);color:var(--fg);font-size:1.1rem;padding:0 14px;font-family:inherit}
+  .row .btn{width:84px;min-height:54px}
+  .err{color:var(--danger);font-size:.9rem;min-height:1.2em;margin:6px 0 2px}
+  .names{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:6px}
+  .names li{display:flex;align-items:center;gap:10px;padding:8px 6px 8px 12px;border-radius:12px;background:var(--bg)}
+  .names .num{width:22px;color:var(--muted);font-weight:700}
+  .names .nm{flex:1;font-size:1.1rem;font-weight:700}
+  .names .del{width:44px;height:40px;border:0;background:transparent;color:var(--muted);font-size:1.2rem}
+  .comp{text-align:center;font-weight:700}
+
+  /* cover */
+  .cover-ico{font-size:3.5rem;margin-bottom:8px}
+  .big-name{font-size:2.3rem;font-weight:900;word-break:keep-all;margin:6px 0}
+  .cover-msg{font-size:1.15rem}
+  .cover-warn{margin:14px 0 28px}
+
+  /* role card */
+  .role-card{border-radius:20px;padding:28px 18px;text-align:center;border:2px solid var(--line);background:var(--card)}
+  .role-card .emo{font-size:4rem}
+  .role-card .rname{font-size:2.2rem;font-weight:900;margin:6px 0}
+  .role-card .desc{color:var(--muted);line-height:1.5}
+  .mates{margin-top:14px;padding:12px;border-radius:12px;background:var(--bg);font-weight:700}
+  .tag{display:inline-block;padding:6px 12px;border-radius:999px;font-weight:800;font-size:.9rem;
+    border:1px solid var(--line);background:var(--card);align-self:flex-start}
+  .info{min-height:2.8em;color:var(--muted);font-size:.95rem;line-height:1.4}
+
+  /* pick list */
+  .picks{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .pick{min-height:60px;border-radius:14px;border:2px solid var(--line);background:var(--card);
+    color:var(--fg);font-size:1.1rem;font-weight:800;font-family:inherit;padding:6px;word-break:keep-all}
+  .pick.on{border-color:var(--primary);background:var(--sel)}
+  .pick.wide{grid-column:1/-1}
+  .pick.yes.on{border-color:var(--good);background:rgba(46,155,98,.15)}
+  .pick.no.on{border-color:var(--danger);background:rgba(201,58,58,.13)}
+  .pick.big{min-height:90px;font-size:1.4rem}
+
+  /* result */
+  .result{border-radius:18px;padding:30px 16px;text-align:center;background:var(--card);border:1px solid var(--line);
+    font-size:1.3rem;line-height:1.6}
+  .result b{font-size:1.5rem}
+  .res-bad{color:var(--danger);font-weight:900;font-size:1.8rem}
+  .res-good{color:var(--good);font-weight:900;font-size:1.8rem}
+
+  .announce{text-align:center;padding:30px 10px}
+  .announce .emo{font-size:4rem}
+  .announce h2{font-size:1.6rem;margin-top:12px;word-break:keep-all}
+  .announce p{margin-top:10px}
+
+  /* timer */
+  .timer{font-size:5.5rem;font-weight:900;text-align:center;font-variant-numeric:tabular-nums;letter-spacing:2px;margin:20px 0 6px}
+  .timer.done{color:var(--danger);animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.35}}
+  .bar{height:10px;border-radius:99px;background:var(--line);overflow:hidden}
+  .bar>i{display:block;height:100%;background:var(--primary);transition:width .25s linear}
+
+  /* end */
+  table{width:100%;border-collapse:collapse}
+  td{padding:12px 8px;border-bottom:1px solid var(--line);font-size:1.05rem}
+  td:first-child{font-weight:800}
+  tr.dead td{color:var(--muted)}
+  tr.dead td:first-child{text-decoration:line-through}
+  .st{font-size:.85rem;font-weight:700}
+
+  /* modal */
+  .modal{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center}
+  .modal.open{display:flex}
+  .sheet{width:100%;max-width:480px;background:var(--bg);border-radius:20px 20px 0 0;
+    padding:20px 16px calc(20px + env(safe-area-inset-bottom));max-height:80dvh;overflow:auto}
+  .sheet h3{margin:6px 0 10px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .chip{padding:9px 14px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-weight:700}
+  .chip.dead{color:var(--muted);text-decoration:line-through}
+
+  /* 공개투표 */
+  .vlist{display:flex;flex-direction:column;gap:8px}
+  .vrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;
+    background:var(--card);border:1px solid var(--line)}
+  .vrow .who{flex:0 0 34%;font-weight:800;font-size:1.05rem;word-break:keep-all}
+  .vrow select{flex:1;min-width:0;height:50px;border-radius:12px;border:1px solid var(--line);
+    background:var(--bg);color:var(--fg);font-size:1.05rem;font-weight:700;padding:0 10px;font-family:inherit}
+  .vrow .seg{flex:1;display:flex;gap:6px}
+  .seg button{flex:1;height:50px;border-radius:12px;border:2px solid var(--line);background:var(--bg);
+    color:var(--fg);font-size:1rem;font-weight:800;font-family:inherit}
+  .seg button.yes.on{border-color:var(--good);background:rgba(46,155,98,.15)}
+  .seg button.no.on{border-color:var(--danger);background:rgba(201,58,58,.13)}
+  .tally{display:flex;flex-direction:column;gap:8px;text-align:left}
+  .tally .t{padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line)}
+  .tally .t b{font-size:1.1rem}
+  .tally .t .cnt{float:right;font-weight:900}
+  .tally .t .by{color:var(--muted);font-size:.9rem;margin-top:4px}
+  .tally .t.top{border-color:var(--primary);border-width:2px}
+</style>
+</head>
+<body class="night">
+<div class="wrap">
+  <header id="hdr" style="display:none">
+    <div class="grow">
+      <div class="phase" id="hPhase"></div>
+      <div class="alive" id="hAlive"></div>
+    </div>
+    <button class="hbtn" id="hList">👥 명단</button>
+    <button class="hbtn stop" id="hStop">중단</button>
+  </header>
+  <main id="app"></main>
+</div>
+
+<div class="modal" id="modal">
+  <div class="sheet">
+    <div id="modalBody"></div>
+    <button class="btn" id="modalClose" style="margin-top:6px">닫기</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+const KEY = 'offline-mafia-v1';
+const MIN_P = 4, MAX_P = 12;
+const DISCUSS_MS = 3 * 60 * 1000;
+const CONFIRM_LOCK_MS = 2000; // 직업별 소요 시간 차이를 줄이기 위한 최소 확인 시간
+
+const ROLES = {
+  mafia:   { n:'마피아', e:'🔪', d:'밤마다 한 명을 제거하세요. 정체를 들키지 마세요!' },
+  doctor:  { n:'의사',   e:'💉', d:'밤마다 한 명을 보호하세요. 마피아가 고른 사람을 맞히면 살릴 수 있어요.' },
+  police:  { n:'경찰',   e:'🔍', d:'밤마다 한 명을 조사해 마피아인지 알아낼 수 있어요.' },
+  citizen: { n:'시민',   e:'🙂', d:'토론과 투표로 마피아를 찾아내세요.' },
+};
+
+const app = document.getElementById('app');
+let S = load() || fresh([]);
+let lockTimer = null;
+let audioCtx = null;
+
+/* ---------- 상태 ---------- */
+function fresh(names){
+  return { screen:'setup', names:names.slice(), players:[], day:1,
+    queue:[], qi:0, sub:'cover', sel:null, hidden:false, unlockAt:0,
+    night:null, lastDeath:null, votes:{}, voteRes:null, appr:{}, apprRes:null,
+    timer:null, winner:null };
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if(!s || !s.screen) return null;
+    // 새로고침 시 개인 정보 화면이 그대로 노출되지 않도록 가림
+    if(['reveal','night'].includes(s.screen) && s.sub !== 'cover') s.hidden = true;
+    return s;
+  }catch(e){ return null; }
+}
+
+/* ---------- 유틸 ---------- */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const P = i => S.players[i];
+const nm = i => esc(P(i).name);
+const aliveIdx = () => S.players.map((p,i)=>p.alive?i:-1).filter(i=>i>=0);
+function rand(n){ const a=new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; }
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=rand(i+1); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+function mafiaCount(n){ return Math.max(1, Math.floor(n/4)); }
+
+function checkWin(){
+  const al = aliveIdx();
+  const m = al.filter(i=>P(i).role==='mafia').length;
+  const o = al.length - m;
+  if(m === 0) return 'citizen';
+  if(m >= o) return 'mafia';
+  return null;
+}
+
+/* ---------- 흐름 ---------- */
+function assignAndReveal(names){
+  const n = names.length, m = mafiaCount(n);
+  const roles = [];
+  for(let i=0;i<m;i++) roles.push('mafia');
+  roles.push('doctor','police');
+  while(roles.length < n) roles.push('citizen');
+  shuffle(roles);
+  const keep = S.names;
+  S = fresh(keep);
+  S.players = names.map((name,i)=>({ name, role:roles[i], alive:true }));
+  S.screen = 'reveal';
+  startQueue(S.players.map((_,i)=>i));
+}
+function startQueue(q){ S.queue=q; S.qi=0; S.sub='cover'; S.sel=null; S.hidden=false; }
+function cur(){ return S.queue[S.qi]; }
+function nextPerson(){
+  S.qi++; S.sub='cover'; S.sel=null;
+  if(S.qi >= S.queue.length) queueDone();
+}
+function queueDone(){
+  if(S.screen==='reveal') startNight();
+  else if(S.screen==='night') resolveNight();
+}
+function startNight(){
+  S.screen='night'; S.night={ mafiaPick:null, doctorPick:null };
+  startQueue(aliveIdx());
+}
+function resolveNight(){
+  const { mafiaPick, doctorPick } = S.night;
+  let killed = null;
+  if(mafiaPick !== null && mafiaPick !== doctorPick) killed = mafiaPick;
+  if(killed !== null) P(killed).alive = false;
+  S.lastDeath = killed;
+  S.screen = 'morning';
+}
+function toDiscuss(){
+  S.screen='discuss';
+  S.timer={ remaining:DISCUSS_MS, running:false, endAt:null, done:false };
+}
+function startVote(){ S.screen='vote'; S.votes={}; }
+function tallyVotes(){
+  const counts = {}; let abstain = 0;
+  Object.values(S.votes).forEach(v => { if(v==='abstain') abstain++; else counts[v]=(counts[v]||0)+1; });
+  const max = Math.max(0, ...Object.values(counts));
+  const tops = Object.keys(counts).filter(k=>counts[k]===max).map(Number);
+  S.voteRes = { max, tops, abstain, candidate: (max>0 && tops.length===1) ? tops[0] : null };
+  S.screen='voteResult';
+}
+function startApproval(){ S.screen='approve'; S.appr={}; }
+function resolveApproval(){
+  const total = aliveIdx().length;
+  const yes = Object.values(S.appr).filter(v=>v==='yes').length;
+  const no = Object.values(S.appr).length - yes;
+  const c = S.voteRes.candidate;
+  const executed = yes > total/2;
+  if(executed) P(c).alive = false;
+  S.apprRes = { yes, no, executed, target:c };
+  S.screen='approveResult';
+}
+function toNextNight(){ S.day++; startNight(); }
+function toEnd(){ S.winner = checkWin(); S.screen='end'; }
+
+/* ---------- 화면 ---------- */
+function phaseLabel(){
+  switch(S.screen){
+    case 'reveal': return '직업 확인';
+    case 'night': return `${S.day}일차 밤`;
+    case 'morning': return `${S.day}일차 아침`;
+    default: return `${S.day}일차 낮`;
+  }
+}
+function isDark(){ return ['setup','reveal','night'].includes(S.screen); }
+
+function render(){
+  clearTimeout(lockTimer);
+  document.body.classList.toggle('night', isDark());
+  document.querySelector('meta[name=theme-color]').content = isDark() ? '#0d0f1e' : '#f5f2ea';
+
+  const hdr = document.getElementById('hdr');
+  const inGame = !['setup','end'].includes(S.screen);
+  hdr.style.display = inGame ? 'flex' : 'none';
+  if(inGame){
+    document.getElementById('hPhase').textContent = phaseLabel();
+    document.getElementById('hAlive').textContent = `생존 ${aliveIdx().length}명 / 전체 ${S.players.length}명`;
+  }
+
+  let html = '';
+  switch(S.screen){
+    case 'setup': html = vSetup(); break;
+    case 'reveal': html = vPass(vRevealAct); break;
+    case 'night': html = vPass(vNightAct); break;
+    case 'morning': html = vMorning(); break;
+    case 'discuss': html = vDiscuss(); break;
+    case 'vote': html = vVoteOpen(); break;
+    case 'voteResult': html = vVoteResult(); break;
+    case 'approve': html = vApproveOpen(); break;
+    case 'approveResult': html = vApproveResult(); break;
+    case 'end': html = vEnd(); break;
+  }
+  app.innerHTML = html;
+  window.scrollTo(0,0);
+
+  // 확인 버튼 잠금 해제 타이머
+  if(S.sub==='confirm' && Date.now() < S.unlockAt){
+    lockTimer = setTimeout(render, S.unlockAt - Date.now() + 30);
+  }
+  save();
+}
+
+function vSetup(){
+  const n = S.names.length;
+  const m = mafiaCount(n);
+  const comp = n >= MIN_P
+    ? `🔪 마피아 ${m} · 💉 의사 1 · 🔍 경찰 1 · 🙂 시민 ${n-m-2}`
+    : `${MIN_P}명 이상 필요해요 (현재 ${n}명)`;
+  return `<div class="screen">
+    <div class="hero"><div class="logo">🌙</div><h1>마피아</h1>
+      <p class="muted">폰 한 대를 돌려가며 하는 오프라인 마피아</p></div>
+    <div class="card">
+      <label class="lbl" for="nameInput">플레이어 (${n}/${MAX_P})</label>
+      <div class="row">
+        <input id="nameInput" maxlength="10" placeholder="이름 입력" autocomplete="off" enterkeyhint="done">
+        <button class="btn primary" data-a="add">추가</button>
+      </div>
+      <p class="err" id="err"></p>
+      <ol class="names">${S.names.map((x,i)=>`<li><span class="num">${i+1}</span><span class="nm">${esc(x)}</span>
+        <button class="del" data-a="del" data-i="${i}" aria-label="${esc(x)} 삭제">✕</button></li>`).join('')}</ol>
+      ${n ? '<p class="muted small">이 순서대로 폰을 돌려요. 앉은 순서대로 입력하면 편해요.</p>' : ''}
+    </div>
+    <div class="card comp">${comp}</div>
+    <button class="btn primary xl bottom" data-a="start" ${n<MIN_P?'disabled':''}>시작</button>
+  </div>`;
+}
+
+function vPass(actFn){
+  const i = cur(); const name = nm(i);
+  if(S.hidden){
+    return `<div class="screen center">
+      <div class="cover-ico">🙈</div>
+      <p class="cover-msg">화면을 가렸어요</p>
+      <h1 class="big-name">${name}님</h1>
+      <p class="muted cover-warn">${name}님만 화면을 보고 계속하세요</p>
+      <button class="btn primary xl" data-a="unhide">계속하기</button></div>`;
+  }
+  if(S.sub==='cover'){
+    if(S.screen==='night'){
+      return `<div class="screen center">
+        <div class="cover-ico">🌙</div>
+        <h1 class="big-name">${name}님</h1>
+        <p class="cover-msg">차례입니다</p>
+        <p class="muted cover-warn">다른 사람은 화면을 보지 마세요</p>
+        <button class="btn primary xl" data-a="uncover">${name}님 확인</button></div>`;
+    }
+    return `<div class="screen center">
+      <div class="cover-ico">🎴</div>
+      <p class="muted">직업 확인 · ${S.qi+1}/${S.queue.length}</p>
+      <h1 class="big-name">${name}님에게</h1>
+      <p class="cover-msg">폰을 넘기세요</p>
+      <p class="muted cover-warn">다른 사람은 화면을 보지 마세요</p>
+      <button class="btn primary xl" data-a="uncover">${name}님 확인</button></div>`;
+  }
+  return actFn(i);
+}
+
+function vRevealAct(i){
+  const p = P(i), r = ROLES[p.role];
+  let mates = '';
+  if(p.role==='mafia'){
+    const others = S.players.map((q,j)=>j).filter(j=>j!==i && P(j).role==='mafia').map(nm);
+    mates = `<div class="mates">${others.length ? '동료 마피아: ' + others.join(', ') : '당신이 유일한 마피아예요'}</div>`;
+  }
+  return `<div class="screen">
+    <p class="muted" style="text-align:center">${nm(i)}님의 직업은</p>
+    <div class="role-card"><div class="emo">${r.e}</div><div class="rname">${r.n}</div>
+      <p class="desc">${r.d}</p>${mates}</div>
+    <button class="btn primary xl bottom" data-a="next">확인했어요</button></div>`;
+}
+
+function vNightAct(i){
+  const p = P(i), r = p.role, al = aliveIdx();
+  let targets, title, info;
+  if(r==='mafia'){
+    targets = al.filter(j=>P(j).role!=='mafia');
+    title = '오늘 밤 제거할 사람을 고르세요';
+    const mates = al.filter(j=>j!==i && P(j).role==='mafia').map(nm);
+    const picked = S.night.mafiaPick;
+    info = mates.length
+      ? `동료: ${mates.join(', ')}${picked!==null ? ` · 현재 지목: ${nm(picked)}` : ''}<br>표가 갈리면 마지막에 고른 마피아의 선택이 적용돼요.`
+      : '살아있는 동료가 없어요.<br>혼자 결정하세요.';
+  }else if(r==='doctor'){
+    targets = al;
+    title = '오늘 밤 보호할 사람을 고르세요';
+    info = '자기 자신도 고를 수 있어요.<br>마피아가 고른 사람을 맞히면 살릴 수 있어요.';
+  }else if(r==='police'){
+    targets = al.filter(j=>j!==i);
+    title = '오늘 밤 조사할 사람을 고르세요';
+    info = '선택하면 마피아인지 바로 알려드려요.<br>결과는 혼자만 확인하세요.';
+  }else{
+    targets = al.filter(j=>j!==i);
+    title = '아무나 한 명 고르세요';
+    info = '시민의 선택은 결과에 영향이 없어요.<br>다른 사람과 비슷한 시간을 들여 고르세요.';
+  }
+  if(S.sub==='confirm'){
+    const t = S.sel, tn = nm(t);
+    let body;
+    if(r==='mafia') body = `<b>${tn}</b>님을<br>지목했습니다.`;
+    else if(r==='doctor') body = `<b>${tn}</b>님을<br>보호합니다.`;
+    else if(r==='police') body = `<b>${tn}</b>님은<br>${P(t).role==='mafia' ? '<span class="res-bad">마피아입니다</span>' : '<span class="res-good">마피아가 아닙니다</span>'}`;
+    else body = `<b>${tn}</b>님을<br>골랐습니다.`;
+    const locked = Date.now() < S.unlockAt;
+    return `<div class="screen">
+      <span class="tag">${ROLES[r].e} ${ROLES[r].n}</span>
+      <h2>선택 결과</h2>
+      <p class="info">내용을 확인한 뒤 완료를 누르세요.<br>완료하면 화면이 가려져요.</p>
+      <div class="result">${body}</div>
+      <button class="btn primary xl bottom" data-a="next" ${locked?'disabled':''}>완료</button></div>`;
+  }
+  return `<div class="screen">
+    <span class="tag">${ROLES[r].e} ${ROLES[r].n}</span>
+    <h2>${title}</h2>
+    <p class="info">${info}</p>
+    <div class="picks">${targets.map(j=>`<button class="pick ${S.sel===j?'on':''}" data-a="sel" data-v="${j}">${nm(j)}${j===i?' (나)':''}</button>`).join('')}</div>
+    <button class="btn primary xl bottom" data-a="submitNight" ${S.sel===null?'disabled':''}>선택 완료</button></div>`;
+}
+
+/* 공개투표: 한 화면에서 모든 생존자의 표를 입력 */
+function allVoted(map){ return aliveIdx().every(i => map[i] !== undefined); }
+
+function vVoteOpen(){
+  const al = aliveIdx();
+  const rows = al.map(i => {
+    const v = S.votes[i];
+    const opts = al.filter(j=>j!==i).map(j=>`<option value="${j}" ${v===j?'selected':''}>${nm(j)}</option>`).join('');
+    return `<div class="vrow"><span class="who">${nm(i)}</span>
+      <select data-voter="${i}" aria-label="${nm(i)}님의 투표">
+        <option value="" ${v===undefined?'selected':''} disabled>선택</option>
+        ${opts}
+        <option value="abstain" ${v==='abstain'?'selected':''}>기권</option>
+      </select></div>`;
+  }).join('');
+  return `<div class="screen">
+    <span class="tag">🗳️ 공개 투표</span>
+    <h2>처형할 사람에게 투표하세요</h2>
+    <p class="info">다 같이 보면서 한 사람씩 누구를 찍었는지 입력하세요.<br>기권도 할 수 있어요.</p>
+    <div class="vlist">${rows}</div>
+    <button class="btn primary xl bottom" id="finishBtn" data-a="finishVote" ${allVoted(S.votes)?'':'disabled'}>투표 마감</button></div>`;
+}
+
+function vApproveOpen(){
+  const c = S.voteRes.candidate;
+  const rows = aliveIdx().map(i => {
+    const v = S.appr[i];
+    return `<div class="vrow"><span class="who">${nm(i)}${i===c?' (본인)':''}</span>
+      <div class="seg">
+        <button class="yes ${v==='yes'?'on':''}" data-a="appr" data-voter="${i}" data-v="yes">👍 찬성</button>
+        <button class="no ${v==='no'?'on':''}" data-a="appr" data-voter="${i}" data-v="no">👎 반대</button>
+      </div></div>`;
+  }).join('');
+  return `<div class="screen">
+    <span class="tag">🗳️ 공개 찬반 투표</span>
+    <h2><b>${nm(c)}</b>님을 처형할까요?</h2>
+    <p class="info">본인도 투표해요. 찬성이 과반이면 처형돼요.</p>
+    <div class="vlist">${rows}</div>
+    <button class="btn primary xl bottom" id="finishBtn" data-a="finishAppr" ${allVoted(S.appr)?'':'disabled'}>투표 마감</button></div>`;
+}
+
+function syncFinish(map){
+  const b = document.getElementById('finishBtn');
+  if(b) b.disabled = !allVoted(map);
+  save();
+}
+
+function vMorning(){
+  const d = S.lastDeath;
+  const win = checkWin();
+  const body = d !== null
+    ? `<div class="emo">🪦</div><h2>어젯밤 <b>${nm(d)}</b>님이<br>사망했습니다</h2>`
+    : `<div class="emo">🌅</div><h2>어젯밤에는<br>아무도 죽지 않았습니다</h2>`;
+  return `<div class="screen">
+    <div class="announce">${body}<p class="muted">모두 눈을 뜨세요.</p></div>
+    <button class="btn primary xl bottom" data-a="${win?'toEnd':'toDiscuss'}">${win?'게임 결과 보기':'낮 토론 시작'}</button></div>`;
+}
+
+function fmt(ms){ const s=Math.ceil(ms/1000); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
+function vDiscuss(){
+  const t = S.timer;
+  const rem = t.running ? Math.max(0, t.endAt - Date.now()) : t.remaining;
+  const pct = (rem / DISCUSS_MS) * 100;
+  return `<div class="screen">
+    <h2 style="text-align:center">☀️ 토론 시간</h2>
+    <p class="muted" style="text-align:center">누가 마피아인지 이야기해 보세요</p>
+    <div class="timer ${t.done?'done':''}" id="tText">${fmt(rem)}</div>
+    <div class="bar"><i id="tBar" style="width:${pct}%"></i></div>
+    <div class="btns bottom">
+      ${t.done ? '' : `<button class="btn ${t.running?'':'primary'} xl" data-a="timerToggle">${t.running?'⏸ 일시정지':(t.remaining<DISCUSS_MS?'▶ 계속':'▶ 시작')}</button>`}
+      <button class="btn ${t.done?'primary':''} xl" data-a="skipDiscuss">${t.done?'투표 시작':'건너뛰고 투표하기'}</button>
+    </div></div>`;
+}
+
+function voteBreakdown(){
+  const by = {}; const abst = [];
+  Object.entries(S.votes).forEach(([voter, v]) => {
+    if(v==='abstain') abst.push(+voter); else (by[v] = by[v] || []).push(+voter);
+  });
+  const max = S.voteRes.max;
+  const rows = Object.keys(by).map(Number).sort((a,b)=>by[b].length-by[a].length).map(t =>
+    `<div class="t ${by[t].length===max?'top':''}"><b>${nm(t)}</b><span class="cnt">${by[t].length}표</span>
+      <div class="by">← ${by[t].map(nm).join(', ')}</div></div>`).join('');
+  const ab = abst.length ? `<div class="t"><b>기권</b><span class="cnt">${abst.length}명</span>
+      <div class="by">${abst.map(nm).join(', ')}</div></div>` : '';
+  return `<div class="tally">${rows}${ab}</div>`;
+}
+
+function vVoteResult(){
+  const r = S.voteRes;
+  let body, btn;
+  if(r.candidate !== null){
+    body = `<div class="emo">☝️</div><h2>최다 득표자는<br><b>${nm(r.candidate)}</b>님 (${r.max}표)</h2>
+      <p class="muted">이제 처형 찬반 투표를 해요</p>`;
+    btn = `<button class="btn primary xl bottom" data-a="startAppr">찬반 투표 시작</button>`;
+  }else if(r.max === 0){
+    body = `<div class="emo">🤷</div><h2>모두 기권했습니다</h2><p class="muted">처형 없이 밤이 됩니다.</p>`;
+    btn = `<button class="btn primary xl bottom" data-a="toNight">밤으로</button>`;
+  }else{
+    body = `<div class="emo">⚖️</div><h2>동점입니다</h2>
+      <p>${r.tops.map(nm).join(', ')} (각 ${r.max}표)</p><p class="muted">처형 없이 밤이 됩니다.</p>`;
+    btn = `<button class="btn primary xl bottom" data-a="toNight">밤으로</button>`;
+  }
+  return `<div class="screen"><div class="announce" style="padding-bottom:4px">${body}</div>${voteBreakdown()}${btn}</div>`;
+}
+
+function vApproveResult(){
+  const r = S.apprRes;
+  const win = checkWin();
+  const body = r.executed
+    ? `<div class="emo">⚰️</div><h2><b>${nm(r.target)}</b>님이<br>처형되었습니다</h2>`
+    : `<div class="emo">🕊️</div><h2>과반에 못 미쳐<br>처형되지 않았습니다</h2>`;
+  const who = v => Object.keys(S.appr).filter(k=>S.appr[k]===v).map(Number).map(nm).join(', ') || '없음';
+  return `<div class="screen">
+    <div class="announce" style="padding-bottom:4px">${body}</div>
+    <div class="tally">
+      <div class="t"><b>👍 찬성</b><span class="cnt">${r.yes}표</span><div class="by">${who('yes')}</div></div>
+      <div class="t"><b>👎 반대</b><span class="cnt">${r.no}표</span><div class="by">${who('no')}</div></div>
+    </div>
+    <button class="btn primary xl bottom" data-a="${win?'toEnd':'toNight'}">${win?'게임 결과 보기':'밤으로'}</button></div>`;
+}
+
+function vEnd(){
+  const w = S.winner;
+  const head = w==='mafia'
+    ? `<div class="emo">🔪</div><h2>마피아 팀 승리!</h2>`
+    : `<div class="emo">🎉</div><h2>시민 팀 승리!</h2>`;
+  const rows = S.players.map(p=>`<tr class="${p.alive?'':'dead'}"><td>${esc(p.name)}</td>
+    <td>${ROLES[p.role].e} ${ROLES[p.role].n}</td><td class="st">${p.alive?'생존':'사망'}</td></tr>`).join('');
+  return `<div class="screen">
+    <div class="announce" style="padding-bottom:8px">${head}<p class="muted">${S.day}일차에 게임이 끝났어요</p></div>
+    <div class="card" style="padding:4px 12px"><table>${rows}</table></div>
+    <div class="btns bottom">
+      <button class="btn primary xl" data-a="replay">같은 사람들로 다시 하기</button>
+      <button class="btn xl" data-a="home">처음으로</button></div></div>`;
+}
+
+/* ---------- 이벤트 ---------- */
+function setErr(msg){ const e=document.getElementById('err'); if(e) e.textContent=msg; }
+function addName(){
+  const inp = document.getElementById('nameInput');
+  const v = inp.value.trim().replace(/\s+/g,' ');
+  if(!v){ setErr('이름을 입력하세요.'); inp.focus(); return; }
+  if(S.names.length >= MAX_P){ setErr(`최대 ${MAX_P}명까지 가능해요.`); return; }
+  if(S.names.includes(v)){ setErr('이미 있는 이름이에요.'); inp.select(); return; }
+  S.names.push(v); render();
+  document.getElementById('nameInput').focus();
+}
+
+/* 키보드: Enter로 화면의 주 버튼 실행 */
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+  if(e.repeat){ e.preventDefault(); return; } // 꾹 누르고 있어도 여러 화면이 넘어가지 않게
+
+  // 명단 창이 열려 있으면 닫기
+  if(modal.classList.contains('open')){ e.preventDefault(); modal.classList.remove('open'); return; }
+
+  // 이름 입력칸: 글자가 있으면 추가, 비어 있으면 시작
+  if(e.target.id === 'nameInput'){
+    e.preventDefault();
+    if(e.target.value.trim()) addName();
+    else clickPrimary();
+    return;
+  }
+
+  e.preventDefault(); // 포커스된 버튼/드롭다운이 대신 눌리는 것 방지
+  clickPrimary();
+});
+function clickPrimary(){
+  const btns = app.querySelectorAll('.btn.primary:not(:disabled)');
+  const b = btns[btns.length - 1]; // 화면 아래쪽 주 버튼
+  if(b) b.click();
+}
+
+app.addEventListener('click', e => {
+  const b = e.target.closest('[data-a]'); if(!b || b.disabled) return;
+  const a = b.dataset.a;
+  switch(a){
+    case 'add': addName(); return;
+    case 'del': {
+      const keep = document.getElementById('nameInput').value;
+      S.names.splice(+b.dataset.i,1); render();
+      document.getElementById('nameInput').value = keep; return;
+    }
+    case 'start':
+      if(S.names.length < MIN_P) return;
+      assignAndReveal(S.names); break;
+    case 'unhide': S.hidden=false; break;
+    case 'uncover': S.sub='act'; S.sel=null; break;
+    case 'sel': {
+      const v = b.dataset.v;
+      S.sel = (v==='abstain'||v==='yes'||v==='no') ? v : +v;
+      break;
+    }
+    case 'next': nextPerson(); break;
+    case 'submitNight': {
+      if(S.sel===null) return;
+      const r = P(cur()).role;
+      if(r==='mafia') S.night.mafiaPick = S.sel;
+      else if(r==='doctor') S.night.doctorPick = S.sel;
+      S.sub='confirm'; S.unlockAt = Date.now() + CONFIRM_LOCK_MS;
+      break;
+    }
+    case 'appr': {
+      const voter = +b.dataset.voter;
+      S.appr[voter] = b.dataset.v;
+      b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x===b));
+      syncFinish(S.appr); return;
+    }
+    case 'finishVote': if(!allVoted(S.votes)) return; tallyVotes(); break;
+    case 'finishAppr': if(!allVoted(S.appr)) return; resolveApproval(); break;
+    case 'toDiscuss': toDiscuss(); break;
+    case 'timerToggle': {
+      const t = S.timer; unlockAudio();
+      if(t.running){ t.remaining = Math.max(0, t.endAt - Date.now()); t.running=false; t.endAt=null; }
+      else { t.endAt = Date.now() + t.remaining; t.running=true; }
+      break;
+    }
+    case 'skipDiscuss':
+      if(!S.timer.done && !confirm('토론을 끝내고 투표를 시작할까요?')) return;
+      startVote(); break;
+    case 'startAppr': startApproval(); break;
+    case 'toNight': toNextNight(); break;
+    case 'toEnd': toEnd(); break;
+    case 'replay': {
+      const names = S.players.map(p=>p.name);
+      S.names = names; assignAndReveal(names); break;
+    }
+    case 'home': S = fresh(S.players.length ? S.players.map(p=>p.name) : S.names); break;
+    default: return;
+  }
+  render();
+});
+
+app.addEventListener('change', e => {
+  const s = e.target.closest('select[data-voter]'); if(!s) return;
+  const v = s.value;
+  S.votes[+s.dataset.voter] = v==='abstain' ? 'abstain' : +v;
+  syncFinish(S.votes);
+});
+
+/* 타이머 */
+setInterval(() => {
+  if(S.screen!=='discuss' || !S.timer || !S.timer.running) return;
+  const rem = S.timer.endAt - Date.now();
+  if(rem <= 0){
+    S.timer.remaining=0; S.timer.running=false; S.timer.endAt=null; S.timer.done=true;
+    alarm(); render(); return;
+  }
+  const tt = document.getElementById('tText'), tb = document.getElementById('tBar');
+  if(tt) tt.textContent = fmt(rem);
+  if(tb) tb.style.width = (rem/DISCUSS_MS*100) + '%';
+}, 250);
+
+function unlockAudio(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+  }catch(e){}
+}
+function alarm(){
+  try{ navigator.vibrate && navigator.vibrate([500,200,500,200,500]); }catch(e){}
+  try{
+    unlockAudio(); if(!audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    [0,0.35,0.7,1.2,1.55,1.9].forEach(off => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type='square'; o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, t0+off);
+      g.gain.exponentialRampToValueAtTime(0.25, t0+off+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0+off+0.25);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t0+off); o.stop(t0+off+0.3);
+    });
+  }catch(e){}
+}
+
+/* 헤더: 명단 / 중단 */
+const modal = document.getElementById('modal');
+document.getElementById('hList').addEventListener('click', () => {
+  const al = S.players.filter(p=>p.alive), dd = S.players.filter(p=>!p.alive);
+  document.getElementById('modalBody').innerHTML = `
+    <h3>생존자 ${al.length}명</h3>
+    <div class="chips">${al.map(p=>`<span class="chip">${esc(p.name)}</span>`).join('') || '<span class="muted">없음</span>'}</div>
+    <h3>사망자 ${dd.length}명</h3>
+    <div class="chips">${dd.map(p=>`<span class="chip dead">${esc(p.name)}</span>`).join('') || '<span class="muted">없음</span>'}</div>
+    <p class="muted small">직업은 게임이 끝나면 공개돼요.</p>`;
+  modal.classList.add('open');
+});
+document.getElementById('modalClose').addEventListener('click', () => modal.classList.remove('open'));
+modal.addEventListener('click', e => { if(e.target===modal) modal.classList.remove('open'); });
+document.getElementById('hStop').addEventListener('click', () => {
+  if(!confirm('게임을 중단할까요?\n진행 상황이 사라지고 처음 화면으로 돌아가요.')) return;
+  S = fresh(S.players.map(p=>p.name)); render();
+});
+
+/* 뒤로 가기 방지 */
+history.pushState(null, '', location.href);
+window.addEventListener('popstate', () => { history.pushState(null, '', location.href); });
+
+/* 다른 탭에서 돌아왔을 때 타이머 화면 갱신 */
+document.addEventListener('visibilitychange', () => { if(!document.hidden && S.screen==='discuss') render(); });
+
+render();
+})();
+</script>
+</body>
+</html>
